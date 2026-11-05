@@ -45,7 +45,7 @@ Failed responses return appropriate HTTP status codes and a structured error obj
 
 ## 2. Authentication & Authorization
 
-All endpoints except `GET /api/v1/health` require a valid authentication token.
+All endpoints except `GET /api/v1/health` require a valid gateway authentication token.
 
 ### 2.1. Standard Service-to-Service Header Format
 Server-side consumers (Discord bot, WebApp backend, internal automation) authenticate using standard HTTP Bearer tokens:
@@ -53,12 +53,10 @@ Server-side consumers (Discord bot, WebApp backend, internal automation) authent
 Authorization: Bearer <GATEWAY_API_TOKEN>
 ```
 
-### 2.2. Upstream Pilot OAuth Delegation Headers
-When performing operations against Infinite Flight v3 that require a specific pilot's permissions (e.g. assigning crew, updating flight plans, booking schedules):
-- `X-Pilot-ID: <int>`: The pilot's internal database ID (e.g. `101`).
-- `X-IF-User-Id: <uuid>`: The pilot's Infinite Flight user UUID.
+### 2.2. Upstream Infinite Flight OAuth Decoupling
+Downstream clients do not pass or manage Infinite Flight OAuth tokens. OryxGate acts as a secure proxy using the master executive/owner account (`pilot_id = 1` in `live_if_oauth_tokens`) which has maximum organization permissions (`live:schedules.read`, `live:schedules.write`, `live:aircraft.read`, `live:organizations.read`).
 
-OryxGate's `TokenManager` looks up the pilot's stored token in MySQL (`if_live_tokens`), handles automatic token refresh if expired, and delegates that token upstream to IF v3. If omitted on read requests, OryxGate defaults to the organization service account.
+OryxGate automatically monitors and rotates this master token upstream. Downstream clients only need a valid `GATEWAY_API_TOKEN`.
 
 ### 2.3. Error Codes
 - `401 Unauthorized`: Missing or malformed `Authorization` header, or invalid token.

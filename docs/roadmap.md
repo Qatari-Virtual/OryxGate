@@ -36,7 +36,7 @@ flowchart LR
 
 - [ ] Write integration test fixtures mocking IF v2 and v3 responses using `respx` / `aioresponses`.
 - [ ] Test 429 rate-limit backoff handling and retry behavior.
-- [ ] Implement `app/upstream/if_live_client.py` (v3 client + OAuth token management with `X-Pilot-ID` resolution).
+- [ ] Implement `app/upstream/if_live_client.py` (v3 client + master OAuth token management using `live_if_oauth_tokens`).
 - [ ] Implement `app/upstream/if_v2_client.py` (v2 public API client with `orjson` high-throughput parsing).
 - [ ] Implement `app/core/cache.py` (generic async in-memory TTL cache with locking to prevent thundering herd).
 

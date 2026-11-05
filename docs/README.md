@@ -17,6 +17,7 @@ OryxGate is built using **Spec-Driven Development (SDD)**. The documents in this
 | [**Upstream Integrations**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/upstream-integrations.md) | Contracts and caching rules for IF v2, IF v3, Crew Center API, and MySQL | Integration Developers |
 | [**Live Data Verification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/verification-guide.md) | Protocols to verify state against the simulator and live.infiniteflight.com | QA & Integration Engineers |
 | [**Implementation Roadmap**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/roadmap.md) | Phased project milestones from empty repo to production-ready microservice | Project Leads & Agents |
+| [**Tasks & Sprints Plan**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/tasks-and-sprints.md) | Granular task breakdown, dependency graph, and acceptance criteria | All Engineers & Agents |
 
 ---
 

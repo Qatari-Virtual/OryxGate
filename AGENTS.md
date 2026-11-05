@@ -51,7 +51,7 @@ flowchart LR
 - **Security & Auth:**
   - Token-based access (`Authorization: Bearer <GATEWAY_API_TOKEN>`).
   - Constant-time token verification (`secrets.compare_digest`).
-  - Upstream pilot token delegation via `X-Pilot-ID` header.
+  - Centralized master v3 OAuth token management via `live_if_oauth_tokens`.
   - Role-based permissions (read-only consumer vs. elevated VA staff actions).
 - **Testing:** `pytest`, `pytest-asyncio`, `pytest-mock`, `respx` / `aioresponses`.
 
@@ -72,7 +72,8 @@ OryxGate/
 │   ├── fleet-fusion-engine.md      # Live fleet state fusion & TOD heuristic
 │   ├── upstream-integrations.md    # IF v2/v3, Crew Center, Database contracts
 │   ├── verification-guide.md       # Simulator & live.infiniteflight verification
-│   └── roadmap.md                  # Implementation roadmap & milestones
+│   ├── roadmap.md                  # Implementation roadmap & milestones
+│   └── tasks-and-sprints.md        # Granular task breakdown & dependency graph
 ├── app/                            # Application Source Code
 │   ├── __init__.py
 │   ├── main.py                     # FastAPI app factory and lifecycle

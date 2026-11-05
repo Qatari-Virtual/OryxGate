@@ -30,25 +30,15 @@ sequenceDiagram
     Gateway->>DB: Save encrypted token row
 ```
 
-### Auto-Refresh Protocol
-Before issuing any request using `IFLiveClient`, OryxGate checks the token's expiration:
-- If `expires_at < utcnow() + 60s`, OryxGate automatically calls `/connect/token` with `grant_type=refresh_token`.
-- If the refresh token is revoked or invalid (`invalid_grant`), OryxGate flags the account for re-authorization.
+### Master OAuth Token Management (`live_if_oauth_tokens`)
+Infinite Flight v3 access is anchored to the organization owner/executive account (stored under `pilot_id = 1` in `live_if_oauth_tokens`), which holds maximum permissions across the organization (read roster, view positions, manage schedules, update flight plans).
 
-### Upstream Token Resolution (Read vs. Write Delegations)
-Infinite Flight v3 enforces distinct permission scopes depending on the caller:
-1. **Organization Read Operations (Fleet roster, active schedules, positions):**
-   Uses the organization's primary service account OAuth token (e.g. stored under `pilot_id = 1` or configured service token).
-2. **Pilot-Specific Write Operations (Crew assignment, claiming flights, custom flight plans):**
-   Requires the specific pilot's OAuth bearer token. Downstream consumers provide the identity via header:
-   ```http
-   X-Pilot-ID: 101
-   ```
-   or
-   ```http
-   X-IF-User-Id: 2d65f573-0ceb-4139-bf8c-4ae039367468
-   ```
-   OryxGate's `TokenManager` resolves the pilot's credentials from the `if_live_tokens` MySQL table, auto-refreshes if needed, and injects that token into the `IFLiveClient` request.
+- **Token Loading:** OryxGate loads the master token on startup or request via `IFLiveTokensModel.get_by_pilot_id(1)`.
+- **Auto-Refresh Protocol:** Before issuing any request using `IFLiveClient`, OryxGate checks the token expiration:
+  - If `expires_at < utcnow() + 60s`, OryxGate automatically calls `/connect/token` with `grant_type=refresh_token`.
+  - It saves the updated access token, refresh token, and new expiration date back into `live_if_oauth_tokens`.
+  - If the refresh token is revoked or invalid (`invalid_grant`), OryxGate logs an alert that re-authorization is required.
+- **Decoupled Downstream:** Downstream consumers (Discord bot, WebApp) never touch IF OAuth tokens or need individual pilot OAuth sessions; they interact exclusively through OryxGate's API.
 
 ### Rate Limit Handling (429)
 Infinite Flight v3 returns a `429` status when throttled. The response body contains a wait interval string (e.g. `"Please retry after 5 seconds"`).
@@ -127,6 +117,20 @@ OryxGate communicates directly with the shared MySQL database for pilot verifica
 | `discordid`| `varchar(30)` | Discord snowflake ID |
 | `transhours`| `int` | Historical transfer hours in seconds |
 | `status` | `int` | 1 = Active, 0 = Inactive |
+
+#### Table: `live_if_oauth_tokens`
+Stores the OAuth 2.0 PKCE tokens used to communicate with Infinite Flight v3. The primary administrative account is keyed by `pilot_id = 1`.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `pilot_id` | `int (PK)` | Internal pilot database ID (e.g. `1` for Owner/Admin) |
+| `access_token` | `text` | Current IF v3 Bearer access token (or `pending:<state>:<verifier>`) |
+| `refresh_token`| `text` | OAuth2 offline refresh token |
+| `expires_at` | `datetime` | UTC expiration timestamp of the access token |
+| `scope` | `text` | Authorized scopes string |
+| `if_user_id` | `varchar(36)` | Infinite Flight user UUID |
+| `created_at` | `datetime` | Token creation timestamp |
+| `updated_at` | `datetime` | Last token refresh / update timestamp |
 
 #### Table: `pireps`
 | Column | Type | Description |

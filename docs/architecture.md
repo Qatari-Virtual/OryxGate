@@ -100,9 +100,13 @@ Infinite Flight enforces strict polling minimums. OryxGate guarantees compliance
 - **`force_refresh` Guardrails:** Forced cache bypass via `force_refresh=true` is only honored for tokens with `admin` scope and is protected by a global **15-second debounce** window. Non-admin calls or requests within the debounce window receive the cached snapshot.
 - **Breadcrumb Batch Throttling:** When multiple aircraft are detected as stopped at the same time, queries to `v2 /flight/{id}/route` are bounded by an `asyncio.Semaphore(2)` to prevent sudden bursts and 429 throttling.
 
-### D. Upstream Client Abstractions & Token Delegation
+### D. Upstream Client Abstractions & Centralized OAuth Management
 - **`IFLiveClient` (v3):** High-level client handling Bearer auth, automatic 429 rate limit backoff (reading `retry-after` / regex seconds), pagination, and domain dataclasses.
-- **Upstream Pilot Token Delegation:** Read operations default to the organization service account token. For write operations requiring specific pilot identity (e.g. schedule assignments, flight plan updates), clients pass `X-Pilot-ID: <id>` or `X-IF-User-Id: <uuid>`. The `TokenManager` retrieves the pilot's stored token from MySQL, auto-refreshes it if expired, and delegates it to the upstream request.
+- **Centralized Master OAuth Token (`live_if_oauth_tokens`):**
+  Infinite Flight v3 operations do not require multi-tenant pilot token delegation. Instead, the organization owner account (`pilot_id = 1` in `live_if_oauth_tokens`) possesses full administrative permissions (Organization Owner/Admin role) across the entire fleet.
+  - This single master token has maximum scopes (`openid profile offline_access live:organizations.read live:aircraft.read live:schedules.read live:schedules.write`), granting full authority to read fleet telemetry, create/reorder/delete schedules, assign/remove crew, and file flight plans.
+  - OryxGate's `TokenManager` monitors this master token in `live_if_oauth_tokens`. Whenever `expires_at < utcnow() + 60s`, it automatically invokes the OAuth2 `refresh_token` flow against Infinite Flight Auth v2, updates MySQL, and ensures 24/7 uninterrupted gateway operations without manual re-authorization.
+  - Downstream consumers (Discord bot, WebApp) never deal with IF OAuth tokens—they simply call OryxGate using their standard Gateway Bearer token.
 - **`InfiniteFlightAPIManager` (v2):** Async wrapper for public v2 endpoints with auto-reconnecting HTTP sessions and fast `orjson` deserialization.
 - **`CrewCenterAPIManager`:** Submits PIREPs and resolves aircraft models to database IDs.
 - **`DatabaseManager`:** Manages an `aiomysql` connection pool with automatic retry on operational disconnections.

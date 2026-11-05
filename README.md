@@ -76,3 +76,4 @@ All technical specifications are stored in the [`/docs`](file:///c:/Users/bum90/
 - [**Upstream Integrations**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/upstream-integrations.md) — Infinite Flight v2/v3, Crew Center, and MySQL contracts
 - [**Live Data Verification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/verification-guide.md) — Simulator & live.infiniteflight.com verification protocols
 - [**Implementation Roadmap**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/roadmap.md) — Phased milestones from scaffolding to production
+- [**Tasks & Sprints Plan**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/tasks-and-sprints.md) — Granular tasks, dependency graph, and acceptance criteria
