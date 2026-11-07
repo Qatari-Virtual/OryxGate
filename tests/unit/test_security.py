@@ -94,9 +94,7 @@ async def test_valid_standard_gateway_token_returns_caller_context(
     mock_settings: MagicMock,
 ) -> None:
     """AC: Valid standard token returns caller context with read & write scopes."""
-    credentials = HTTPAuthorizationCredentials(
-        scheme="Bearer", credentials="gateway_token_1"
-    )
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="gateway_token_1")
     caller = await get_current_token(credentials=credentials, settings=mock_settings)
 
     assert isinstance(caller, CallerContext)
@@ -112,9 +110,7 @@ async def test_valid_admin_token_returns_caller_context_with_admin_scope(
     mock_settings: MagicMock,
 ) -> None:
     """AC: Valid admin token returns caller context with read, write, and admin scopes."""
-    credentials = HTTPAuthorizationCredentials(
-        scheme="Bearer", credentials="admin_token_1"
-    )
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="admin_token_1")
     caller = await get_current_token(credentials=credentials, settings=mock_settings)
 
     assert isinstance(caller, CallerContext)
@@ -133,9 +129,7 @@ async def test_token_in_both_gateway_and_admin_gets_all_scopes(
     mock_settings.raw_gateway_api_tokens = ["dual_token"]
     mock_settings.raw_admin_api_tokens = ["dual_token"]
 
-    credentials = HTTPAuthorizationCredentials(
-        scheme="Bearer", credentials="dual_token"
-    )
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="dual_token")
     caller = await get_current_token(credentials=credentials, settings=mock_settings)
 
     assert caller.scopes == {"read", "write", "admin"}

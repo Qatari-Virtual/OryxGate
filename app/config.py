@@ -15,28 +15,20 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
     if value is None:
         raise ValueError("Token list cannot be None.")
     if isinstance(value, (Mapping, dict)):
-        raise ValueError(
-            f"Token list cannot be a mapping, got {type(value).__name__}."
-        )
+        raise ValueError(f"Token list cannot be a mapping, got {type(value).__name__}.")
     if isinstance(value, str):
         v = value.strip()
         if not v:
             return []
         if v.startswith("[") or v.endswith("]") or v.startswith("{") or v.endswith("}"):
             if not (v.startswith("[") and v.endswith("]")):
-                raise ValueError(
-                    "Malformed bracketed token list, expected matching '[' and ']'."
-                )
+                raise ValueError("Malformed bracketed token list, expected matching '[' and ']'.")
             try:
                 parsed = json.loads(v)
             except Exception:
-                raise ValueError(
-                    "Invalid JSON array syntax for token list."
-                ) from None
+                raise ValueError("Invalid JSON array syntax for token list.") from None
             if not isinstance(parsed, list):
-                raise ValueError(
-                    f"Token list JSON must be an array, got {type(parsed).__name__}."
-                )
+                raise ValueError(f"Token list JSON must be an array, got {type(parsed).__name__}.")
             parsed_tokens: list[SecretStr] = []
             for item in parsed:
                 if not isinstance(item, str):
@@ -47,11 +39,7 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
                 if item_str:
                     parsed_tokens.append(SecretStr(item_str))
             return parsed_tokens
-        return [
-            SecretStr(tok.strip())
-            for tok in v.split(",")
-            if tok.strip()
-        ]
+        return [SecretStr(tok.strip()) for tok in v.split(",") if tok.strip()]
     if isinstance(value, (list, set, tuple)):
         tokens: list[SecretStr] = []
         for item in value:
@@ -64,13 +52,9 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
                 if raw:
                     tokens.append(SecretStr(raw))
             else:
-                raise ValueError(
-                    f"Token list elements must be strings, got {type(item).__name__}."
-                )
+                raise ValueError(f"Token list elements must be strings, got {type(item).__name__}.")
         return tokens
-    raise ValueError(
-        f"Token list must be a string or list of tokens, got {type(value).__name__}."
-    )
+    raise ValueError(f"Token list must be a string or list of tokens, got {type(value).__name__}.")
 
 
 class Settings(BaseSettings):
@@ -191,9 +175,7 @@ class Settings(BaseSettings):
 
     @field_validator("gateway_api_tokens")
     @classmethod
-    def validate_gateway_tokens_non_empty(
-        cls, value: list[SecretStr]
-    ) -> list[SecretStr]:
+    def validate_gateway_tokens_non_empty(cls, value: list[SecretStr]) -> list[SecretStr]:
         """Ensure at least one valid gateway token is configured."""
         if not value:
             raise ValueError(
@@ -208,9 +190,7 @@ class Settings(BaseSettings):
         v = value.strip()
         parsed = urlparse(v)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError(
-                f"CC_API_BASE_URL must be a valid HTTP/HTTPS URL, got: '{value}'"
-            )
+            raise ValueError(f"CC_API_BASE_URL must be a valid HTTP/HTTPS URL, got: '{value}'")
         return v.rstrip("/")
 
     @property

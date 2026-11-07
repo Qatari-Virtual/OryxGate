@@ -34,11 +34,7 @@ class CallerContext:
         return scope in self.scopes
 
     def __repr__(self) -> str:
-        masked = (
-            f"{self._token[:3]}***{self._token[-2:]}"
-            if len(self._token) >= 6
-            else "***"
-        )
+        masked = f"{self._token[:3]}***{self._token[-2:]}" if len(self._token) >= 6 else "***"
         sorted_scopes = sorted(list(self.scopes))
         return f"CallerContext(token='{masked}', scopes={sorted_scopes})"
 

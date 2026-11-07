@@ -82,8 +82,7 @@ class CallerContext:
 async def get_current_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     settings: Settings = Depends(get_settings),
-) -> CallerContext:
-    ...
+) -> CallerContext: ...
 ```
 - Extracts bearer credentials from the request.
 - Performs constant-time comparison against `settings.raw_admin_api_tokens` and `settings.raw_gateway_api_tokens`.
@@ -94,8 +93,7 @@ async def get_current_token(
 ```python
 async def require_admin(
     caller: CallerContext = Depends(get_current_token),
-) -> CallerContext:
-    ...
+) -> CallerContext: ...
 ```
 - Asserts that `"admin"` exists in `caller.scopes`.
 - Raises `HTTPException(status_code=403, detail="Admin scope required")` if missing.
@@ -103,7 +101,8 @@ async def require_admin(
 
 ### 5.3. `require_scope`
 ```python
-def require_scope(required_scope: str) -> Callable[[CallerContext], Coroutine[Any, Any, CallerContext]]:
-    ...
+def require_scope(
+    required_scope: str,
+) -> Callable[[CallerContext], Coroutine[Any, Any, CallerContext]]: ...
 ```
 - Parameterized dependency factory enforcing arbitrary scopes (e.g. `Depends(require_scope("write"))`).

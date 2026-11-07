@@ -24,7 +24,7 @@ All successful JSON responses are wrapped in a standard envelope:
 ```
 
 ### Standard Error Envelope
-Failed responses return appropriate HTTP status codes and a structured error object:
+Failed responses return appropriate HTTP status codes and a structured error object with `ORJSONResponse`:
 
 ```json
 {
@@ -40,6 +40,12 @@ Failed responses return appropriate HTTP status codes and a structured error obj
   }
 }
 ```
+
+#### Global Error Handling & Codes
+All exceptions across OryxGate are intercepted by global exception handlers to guarantee that **no unhandled HTML tracebacks** are ever returned to clients:
+- **Unhandled Exceptions (`500 Internal Server Error`):** Returns code `"INTERNAL_SERVER_ERROR"` with a generic safe message and request ID in the meta object.
+- **HTTP Exceptions (`4xx`/`5xx`):** Returns the corresponding code (e.g. `"NOT_FOUND"`, `"UNAUTHORIZED"`, `"FORBIDDEN"`), preserving HTTP status and headers (e.g. `WWW-Authenticate: Bearer`).
+- **Validation Exceptions (`422 Unprocessable Content`):** Returns code `"VALIDATION_ERROR"` with structured detail describing field validation errors.
 
 ---
 
@@ -75,15 +81,22 @@ Checks the service health and upstream connectivity status.
 ```json
 {
   "success": true,
+  "status": "healthy",
+  "uptime": 86420.5,
   "data": {
     "status": "healthy",
-    "uptime_seconds": 86420,
+    "uptime": 86420.5,
+    "uptime_seconds": 86420.5,
     "upstream_status": {
       "if_v3": "connected",
       "if_v2": "connected",
       "crew_center": "connected",
       "database": "connected"
     }
+  },
+  "meta": {
+    "timestamp": "2026-11-04T15:30:00Z",
+    "request_id": "req_01hxyz123"
   }
 }
 ```
