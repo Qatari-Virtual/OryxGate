@@ -54,6 +54,42 @@ flowchart TD
 
 ---
 
+## 🛠️ Quickstart & Local Setup
+
+### Prerequisites
+- Python `3.11+`
+- `pip` or virtual environment manager
+
+### Setup Virtual Environment & Install Dependencies
+```bash
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+# Linux / macOS:
+source .venv/bin/activate
+
+# Install OryxGate in editable mode with development dependencies
+pip install -e ".[dev]"
+```
+
+### Running Tests, Linter, and Type Checker
+```bash
+# Run pytest test suite
+pytest
+
+# Run ruff linter and formatter check
+ruff check .
+ruff format --check .
+
+# Run mypy static type analysis
+mypy
+```
+
+---
+
 ## 📜 Development Paradigm: Spec-Driven Development (SDD)
 
 This repository strictly practices **Spec-Driven Development**:
