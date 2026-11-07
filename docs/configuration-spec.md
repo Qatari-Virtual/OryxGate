@@ -74,6 +74,7 @@ Settings instances are accessed via the cached dependency provider `get_settings
 from functools import lru_cache
 from app.config import Settings
 
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
