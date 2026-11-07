@@ -198,6 +198,28 @@ def test_native_secretstr_tokens_trimmed(valid_config_dict: dict[str, Any]) -> N
     assert settings.raw_gateway_api_tokens == ["padded_gw_tok_1", "padded_gw_tok_2"]
 
 
+def test_mapping_tokens_rejected(valid_config_dict: dict[str, Any]) -> None:
+    """Verify that mapping types (e.g. dict) are rejected rather than having keys extracted as tokens."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = {"typo": "ignored"}
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+    valid_config_dict["GATEWAY_API_TOKENS"] = "valid_tok"
+    valid_config_dict["ADMIN_API_TOKENS"] = {"admin_key": "val"}
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "ADMIN_API_TOKENS" in str(exc_info.value).upper()
+
+
+def test_unsupported_scalar_types_rejected(valid_config_dict: dict[str, Any]) -> None:
+    """Verify that unsupported scalar types passed directly are rejected."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = 12345
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
 @pytest.mark.parametrize(
     "malformed_tokens",
     [

@@ -1,7 +1,7 @@
 """Application configuration and environment settings schema."""
 
 import json
-from collections.abc import Iterable
+from collections.abc import Mapping
 from functools import lru_cache
 from typing import Annotated, Any
 from urllib.parse import urlparse
@@ -13,7 +13,11 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 def _parse_token_input(value: Any) -> list[SecretStr]:
     """Parse comma-separated, JSON-encoded, or iterable token strings into a list of SecretStr."""
     if value is None:
-        return []
+        raise ValueError("Token list cannot be None.")
+    if isinstance(value, (Mapping, dict)):
+        raise ValueError(
+            f"Token list cannot be a mapping, got {type(value).__name__}."
+        )
     if isinstance(value, str):
         v = value.strip()
         if not v:
@@ -48,7 +52,7 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
             for tok in v.split(",")
             if tok.strip()
         ]
-    if isinstance(value, Iterable) and not isinstance(value, (bytes, str)):
+    if isinstance(value, (list, set, tuple)):
         tokens: list[SecretStr] = []
         for item in value:
             if isinstance(item, SecretStr):
@@ -64,7 +68,9 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
                     f"Token list elements must be strings, got {type(item).__name__}."
                 )
         return tokens
-    return []
+    raise ValueError(
+        f"Token list must be a string or list of tokens, got {type(value).__name__}."
+    )
 
 
 class Settings(BaseSettings):
