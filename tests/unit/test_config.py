@@ -188,6 +188,16 @@ def test_non_string_native_iterable_tokens_rejected(
     assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
 
 
+def test_native_secretstr_tokens_trimmed(valid_config_dict: dict[str, Any]) -> None:
+    """Verify that native SecretStr list tokens have surrounding whitespace trimmed."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = [
+        SecretStr("  padded_gw_tok_1  "),
+        SecretStr("  padded_gw_tok_2  "),
+    ]
+    settings = Settings(**valid_config_dict, _env_file=None)
+    assert settings.raw_gateway_api_tokens == ["padded_gw_tok_1", "padded_gw_tok_2"]
+
+
 @pytest.mark.parametrize(
     "malformed_tokens",
     [

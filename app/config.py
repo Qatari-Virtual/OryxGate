@@ -54,7 +54,7 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
             if isinstance(item, SecretStr):
                 raw = item.get_secret_value().strip()
                 if raw:
-                    tokens.append(item)
+                    tokens.append(SecretStr(raw))
             elif isinstance(item, str):
                 raw = item.strip()
                 if raw:
