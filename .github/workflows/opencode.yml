@@ -16,10 +16,12 @@ permissions:
 
 jobs:
   opencode-review:
-    # Trigger automatically on PR open/update OR via comment "/oc" / "/opencode"
-    if: github.event_name == 'pull_request' || contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')
+    # Trigger automatically on PR open/update OR via comment "/oc" / "/opencode" on PRs
+    if: >-
+      github.event_name == 'pull_request' ||
+      ((github.event.issue.pull_request || github.event_name == 'pull_request_review_comment') &&
+        (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')))
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -36,13 +38,53 @@ jobs:
           echo "- **Selected Model:** \`$SELECTED_MODEL\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Trigger Event:** \`${{ github.event_name }}\`" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Fetch Issue Context
+        id: issue-context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
+        run: |
+          # Prioritize the branch prefix created from the issue
+          ISSUE_NUM=$(echo "$HEAD_REF" | grep -oE '^[0-9]+' || true)
+
+          # Fallback if triggered via issue_comment where HEAD_REF is empty
+          if [ -z "$ISSUE_NUM" ] && [ -n "${{ github.event.issue.number }}" ]; then
+            HEAD_REF=$(gh pr view "${{ github.event.issue.number }}" --json headRefName -q .headRefName 2>/dev/null || true)
+            ISSUE_NUM=$(echo "$HEAD_REF" | grep -oE '^[0-9]+' || true)
+          fi
+
+          # Fallback to the (#XX) tag in the title
+          if [ -z "$ISSUE_NUM" ]; then
+            ISSUE_NUM=$(echo "$PR_TITLE" | grep -oE '\(#[0-9]+\)' | tr -d '()#' || true)
+          fi
+
+          if [ -n "$ISSUE_NUM" ]; then
+            echo "Fetching details for Issue #$ISSUE_NUM..."
+            ISSUE_DATA=$(gh issue view "$ISSUE_NUM" --json title,body -q '"Title: " + .title + "\n\nDescription:\n" + .body' 2>/dev/null || true)
+            {
+              echo "context<<EOF"
+              echo "--- ORIGINAL ISSUE (#$ISSUE_NUM) ---"
+              echo "$ISSUE_DATA"
+              echo "-----------------------------------"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "### 📋 Linked Issue Context" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Resolved Issue:** #$ISSUE_NUM" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "context=No linked issue detected from branch prefix." >> "$GITHUB_OUTPUT"
+            echo "### 📋 Linked Issue Context" >> "$GITHUB_STEP_SUMMARY"
+            echo "- No linked issue detected from branch prefix or title." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Run OpenCode Action (${{ steps.select-model.outputs.model }})
         uses: dceoy/opencode-action@163f9a9cd3d3f497e2847635585419f951371d2f # v0.8.1
         with:
           model: ${{ steps.select-model.outputs.model }}
-          opencode-version: 'latest'
-          review-only: 'true'
-          use-github-token: 'true'
+          opencode-version: "latest"
+          review-only: "true"
+          use-github-token: "true"
+          prompt: ${{ steps.issue-context.outputs.context }}
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
