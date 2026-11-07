@@ -1,0 +1,48 @@
+name: OpenCode PR Review & Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  opencode-review:
+    # Trigger automatically on PR open/update OR via comment "/oc" / "/opencode"
+    if: github.event_name == 'pull_request' || contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Select Random Model
+        id: select-model
+        run: |
+          SELECTED_MODEL=$(shuf -n 1 -e "opencode-go/gpt-6-luna" "opencode-go/qwen3.7-plus" "opencode-go/glm-5.3-flash")
+          echo "model=$SELECTED_MODEL" >> "$GITHUB_OUTPUT"
+          echo "::notice title=OpenCode Model Selection::Selected model: $SELECTED_MODEL"
+          echo "### 🤖 OpenCode Model Selection" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Selected Model:** \`$SELECTED_MODEL\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Trigger Event:** \`${{ github.event_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run OpenCode Action (${{ steps.select-model.outputs.model }})
+        uses: dceoy/opencode-action@163f9a9cd3d3f497e2847635585419f951371d2f # v0.8.1
+        with:
+          model: ${{ steps.select-model.outputs.model }}
+          opencode-version: 'latest'
+          review-only: 'true'
+          use-github-token: 'true'
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
