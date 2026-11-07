@@ -21,13 +21,10 @@ flowchart LR
 **Objective:** Establish the FastAPI application skeleton, environment management, and token authentication middleware.
 
 - [x] Create `pyproject.toml` and lock dependencies (`fastapi`, `uvicorn`, `orjson`, `pydantic-settings`, `aiohttp`, `aiomysql`, `pytest`, `pytest-asyncio`, `respx`).
-- [ ] Configure `app/config.py` using `pydantic-settings` for all environment variables.
-- [ ] Author test suite for authentication (`tests/e2e/test_auth.py`):
-  - Missing token $\rightarrow$ `401 Unauthorized`.
-  - Malformed token $\rightarrow$ `401 Unauthorized`.
-  - Valid token $\rightarrow$ `200 OK`.
-- [ ] Implement `BearerAuthMiddleware` and security dependencies in `app/core/security.py`.
-- [ ] Implement `GET /api/v1/health`.
+- [x] Configure `app/config.py` using `pydantic-settings` for all environment variables (TASK-1.2).
+- [x] Implement Bearer authentication and security dependencies in `app/core/security.py` (TASK-1.3).
+- [ ] Implement `GET /api/v1/health` and FastAPI application setup (TASK-1.4).
+- [ ] Author E2E test suite for auth & health routes (`tests/e2e/test_auth.py`, TASK-1.5).
 
 ---
 
