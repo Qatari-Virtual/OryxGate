@@ -150,6 +150,26 @@ def test_token_parsing_json_format(valid_config_dict: dict[str, str]) -> None:
     assert [t.get_secret_value() for t in settings.admin_api_tokens] == ["admin_json_1"]
 
 
+@pytest.mark.parametrize(
+    "malformed_tokens",
+    [
+        '["tok1", "tok2"',  # unclosed bracket
+        '["tok1",]',  # trailing comma
+        '["tok1" "tok2"]',  # missing delimiter
+        '{"key": "value"}',  # object instead of array
+        "[malformed_unquoted_string]",  # invalid JSON syntax
+    ],
+)
+def test_malformed_json_tokens_raises_validation_error(
+    valid_config_dict: dict[str, str], malformed_tokens: str
+) -> None:
+    """Verify that malformed bracketed JSON token lists fail fast rather than falling back to comma-split."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = malformed_tokens
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
 def test_empty_gateway_tokens_raises_validation_error(
     valid_config_dict: dict[str, str],
 ) -> None:

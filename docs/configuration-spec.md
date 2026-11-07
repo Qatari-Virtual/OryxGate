@@ -43,12 +43,13 @@ OryxGate relies on environment variables for external service integration creden
 
 ## 3. Ingestion & Validation Rules
 
-1. **Token Ingestion Flexibility:**
+1. **Token Ingestion Flexibility & Strict Parsing:**
    `GATEWAY_API_TOKENS` and `ADMIN_API_TOKENS` accept:
    - Comma-delimited strings: `"token1,token2, token3"`
    - JSON arrays: `'["token1", "token2"]'`
    - Native lists of strings or `SecretStr`.
    Whitespace around individual tokens is trimmed. Empty token elements are discarded.
+   If a bracketed token list is provided (`[...]`) but is not valid JSON (e.g. malformed syntax, trailing commas, or non-array JSON), validation fails fast with a descriptive `ValidationError` rather than silently falling back to comma-splitting.
 2. **Mandatory Non-Empty Gateway Tokens:**
    At least one non-empty gateway token is mandatory. Providing an empty list or blank string raises `ValidationError`.
 3. **URL Normalization:**
