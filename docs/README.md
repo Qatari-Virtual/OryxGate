@@ -12,6 +12,7 @@ OryxGate is built using **Spec-Driven Development (SDD)**. The documents in this
 | :--- | :--- | :--- |
 | [**Spec-Driven Development**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/spec-driven-development.md) | Standard Operating Procedure: Document First $\rightarrow$ Tests Second $\rightarrow$ Code Third | All Agents & Engineers |
 | [**System Architecture**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/architecture.md) | High-level topology, component diagrams, caching hierarchy, and security model | System Architects & Developers |
+| [**Configuration Specification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/configuration-spec.md) | Environment variables, validation rules, secrets masking, and Pydantic schema | All Engineers & Ops |
 | [**API Specification (v1)**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/api-spec.md) | Complete REST API contracts, Bearer token auth, request/response models | Frontend, Bot & Gateway Devs |
 | [**Fleet Fusion Engine**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/fleet-fusion-engine.md) | In-depth spec for v2/v3 telemetry fusion, TOD holding heuristic, and matching math | Telemetry & Data Engineers |
 | [**Upstream Integrations**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/upstream-integrations.md) | Contracts and caching rules for IF v2, IF v3, Crew Center API, and MySQL | Integration Developers |
