@@ -20,7 +20,7 @@ flowchart LR
 ## Phase 1: Scaffolding, Configuration, & Token Auth
 **Objective:** Establish the FastAPI application skeleton, environment management, and token authentication middleware.
 
-- [ ] Create `pyproject.toml` and lock dependencies (`fastapi`, `uvicorn`, `orjson`, `pydantic-settings`, `aiohttp`, `aiomysql`, `pytest`, `pytest-asyncio`, `respx`).
+- [x] Create `pyproject.toml` and lock dependencies (`fastapi`, `uvicorn`, `orjson`, `pydantic-settings`, `aiohttp`, `aiomysql`, `pytest`, `pytest-asyncio`, `respx`).
 - [ ] Configure `app/config.py` using `pydantic-settings` for all environment variables.
 - [ ] Author test suite for authentication (`tests/e2e/test_auth.py`):
   - Missing token $\rightarrow$ `401 Unauthorized`.
