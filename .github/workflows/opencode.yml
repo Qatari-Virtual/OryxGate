@@ -42,6 +42,7 @@ jobs:
           model: ${{ steps.select-model.outputs.model }}
           opencode-version: 'latest'
           review-only: 'true'
+          use-github-token: 'true'
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
