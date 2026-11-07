@@ -29,7 +29,7 @@ jobs:
       - name: Select Random Model
         id: select-model
         run: |
-          SELECTED_MODEL=$(shuf -n 1 -e "gpt-6-luna" "qwen3.7-plus" "glm-5.3-flash")
+          SELECTED_MODEL=$(shuf -n 1 -e "opencode-go/gpt-6-luna" "opencode-go/qwen3.7-plus" "opencode-go/glm-5.3-flash")
           echo "model=$SELECTED_MODEL" >> "$GITHUB_OUTPUT"
           echo "::notice title=OpenCode Model Selection::Selected model: $SELECTED_MODEL"
           echo "### 🤖 OpenCode Model Selection" >> "$GITHUB_STEP_SUMMARY"
