@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -148,6 +149,120 @@ def test_token_parsing_json_format(valid_config_dict: dict[str, str]) -> None:
         "tok_json_2",
     ]
     assert [t.get_secret_value() for t in settings.admin_api_tokens] == ["admin_json_1"]
+
+
+@pytest.mark.parametrize(
+    "non_string_tokens",
+    [
+        "[null]",
+        "[true]",
+        "[false]",
+        "[12345]",
+        "[12.34]",
+        '["valid_tok", null]',
+        '["valid_tok", 42]',
+    ],
+)
+def test_non_string_json_tokens_rejected(
+    valid_config_dict: dict[str, str], non_string_tokens: str
+) -> None:
+    """Verify that non-string scalars in JSON token lists are rejected rather than stringified."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = non_string_tokens
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
+def test_non_string_native_iterable_tokens_rejected(
+    valid_config_dict: dict[str, Any],
+) -> None:
+    """Verify that non-string objects in native iterables are rejected rather than stringified."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = [None]
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+    valid_config_dict["GATEWAY_API_TOKENS"] = [12345]
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
+def test_native_secretstr_tokens_trimmed(valid_config_dict: dict[str, Any]) -> None:
+    """Verify that native SecretStr list tokens have surrounding whitespace trimmed."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = [
+        SecretStr("  padded_gw_tok_1  "),
+        SecretStr("  padded_gw_tok_2  "),
+    ]
+    settings = Settings(**valid_config_dict, _env_file=None)
+    assert settings.raw_gateway_api_tokens == ["padded_gw_tok_1", "padded_gw_tok_2"]
+
+
+def test_mapping_tokens_rejected(valid_config_dict: dict[str, Any]) -> None:
+    """Verify that mapping types (e.g. dict) are rejected rather than having keys extracted as tokens."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = {"typo": "ignored"}
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+    valid_config_dict["GATEWAY_API_TOKENS"] = "valid_tok"
+    valid_config_dict["ADMIN_API_TOKENS"] = {"admin_key": "val"}
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "ADMIN_API_TOKENS" in str(exc_info.value).upper()
+
+
+def test_unsupported_scalar_types_rejected(valid_config_dict: dict[str, Any]) -> None:
+    """Verify that unsupported scalar types passed directly are rejected."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = 12345
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
+@pytest.mark.parametrize(
+    "malformed_tokens",
+    [
+        '["tok1", "tok2"',  # unclosed bracket
+        '["tok1",]',  # trailing comma
+        '["tok1" "tok2"]',  # missing delimiter
+        '{"key": "value"}',  # object instead of array
+        "[malformed_unquoted_string]",  # invalid JSON syntax
+    ],
+)
+def test_malformed_json_tokens_raises_validation_error(
+    valid_config_dict: dict[str, str], malformed_tokens: str
+) -> None:
+    """Verify that malformed bracketed JSON token lists fail fast rather than falling back to comma-split."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = malformed_tokens
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
+@pytest.mark.parametrize(
+    "malformed_template",
+    [
+        '["{secret}",]',  # trailing comma
+        '["{secret}"',  # unclosed bracket
+        '"{secret}"]',  # missing opening bracket
+        '{{"tok": "{secret}"}}',  # object with secret
+    ],
+)
+def test_malformed_json_tokens_omits_raw_secrets_in_validation_error(
+    valid_config_dict: dict[str, str], malformed_template: str
+) -> None:
+    """Verify that malformed token parsing errors do not leak credential values in ValidationError."""
+    secret_marker = "super_confidential_raw_bearer_token_xyz"
+    valid_config_dict["GATEWAY_API_TOKENS"] = malformed_template.format(secret=secret_marker)
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+
+    error_str = str(exc_info.value)
+    error_repr = repr(exc_info.value)
+    assert secret_marker not in error_str, f"Secret leaked in error string: {error_str}"
+    assert secret_marker not in error_repr, f"Secret leaked in error repr: {error_repr}"
 
 
 def test_empty_gateway_tokens_raises_validation_error(

@@ -1,7 +1,7 @@
 """Application configuration and environment settings schema."""
 
 import json
-from collections.abc import Iterable
+from collections.abc import Mapping
 from functools import lru_cache
 from typing import Annotated, Any
 from urllib.parse import urlparse
@@ -13,37 +13,64 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 def _parse_token_input(value: Any) -> list[SecretStr]:
     """Parse comma-separated, JSON-encoded, or iterable token strings into a list of SecretStr."""
     if value is None:
-        return []
+        raise ValueError("Token list cannot be None.")
+    if isinstance(value, (Mapping, dict)):
+        raise ValueError(
+            f"Token list cannot be a mapping, got {type(value).__name__}."
+        )
     if isinstance(value, str):
         v = value.strip()
         if not v:
             return []
-        if v.startswith("[") and v.endswith("]"):
+        if v.startswith("[") or v.endswith("]") or v.startswith("{") or v.endswith("}"):
+            if not (v.startswith("[") and v.endswith("]")):
+                raise ValueError(
+                    "Malformed bracketed token list, expected matching '[' and ']'."
+                )
             try:
                 parsed = json.loads(v)
-                if isinstance(parsed, list):
-                    return [
-                        SecretStr(str(item).strip())
-                        for item in parsed
-                        if str(item).strip()
-                    ]
             except Exception:
-                pass
+                raise ValueError(
+                    "Invalid JSON array syntax for token list."
+                ) from None
+            if not isinstance(parsed, list):
+                raise ValueError(
+                    f"Token list JSON must be an array, got {type(parsed).__name__}."
+                )
+            parsed_tokens: list[SecretStr] = []
+            for item in parsed:
+                if not isinstance(item, str):
+                    raise ValueError(
+                        f"Token list elements must be strings, got {type(item).__name__}."
+                    )
+                item_str = item.strip()
+                if item_str:
+                    parsed_tokens.append(SecretStr(item_str))
+            return parsed_tokens
         return [
             SecretStr(tok.strip())
             for tok in v.split(",")
             if tok.strip()
         ]
-    if isinstance(value, Iterable) and not isinstance(value, (bytes, str)):
+    if isinstance(value, (list, set, tuple)):
         tokens: list[SecretStr] = []
         for item in value:
             if isinstance(item, SecretStr):
-                if item.get_secret_value().strip():
-                    tokens.append(item)
-            elif str(item).strip():
-                tokens.append(SecretStr(str(item).strip()))
+                raw = item.get_secret_value().strip()
+                if raw:
+                    tokens.append(SecretStr(raw))
+            elif isinstance(item, str):
+                raw = item.strip()
+                if raw:
+                    tokens.append(SecretStr(raw))
+            else:
+                raise ValueError(
+                    f"Token list elements must be strings, got {type(item).__name__}."
+                )
         return tokens
-    return []
+    raise ValueError(
+        f"Token list must be a string or list of tokens, got {type(value).__name__}."
+    )
 
 
 class Settings(BaseSettings):
@@ -53,6 +80,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        hide_input_in_errors=True,
         extra="ignore",
     )
 
