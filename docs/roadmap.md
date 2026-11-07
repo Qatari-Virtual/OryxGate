@@ -18,20 +18,19 @@ flowchart LR
 ---
 
 ## Phase 1: Scaffolding, Configuration, & Token Auth
+
 **Objective:** Establish the FastAPI application skeleton, environment management, and token authentication middleware.
 
 - [x] Create `pyproject.toml` and lock dependencies (`fastapi`, `uvicorn`, `orjson`, `pydantic-settings`, `aiohttp`, `aiomysql`, `pytest`, `pytest-asyncio`, `respx`).
-- [x] Configure `app/config.py` using `pydantic-settings` for all environment variables.
-- [ ] Author test suite for authentication (`tests/e2e/test_auth.py`):
-  - Missing token $\rightarrow$ `401 Unauthorized`.
-  - Malformed token $\rightarrow$ `401 Unauthorized`.
-  - Valid token $\rightarrow$ `200 OK`.
-- [ ] Implement `BearerAuthMiddleware` and security dependencies in `app/core/security.py`.
-- [ ] Implement `GET /api/v1/health`.
+- [x] Configure `app/config.py` using `pydantic-settings` for all environment variables (TASK-1.2).
+- [x] Implement Bearer authentication and security dependencies in `app/core/security.py` (TASK-1.3).
+- [ ] Implement `GET /api/v1/health` and FastAPI application setup (TASK-1.4).
+- [ ] Author E2E test suite for auth & health routes (`tests/e2e/test_auth.py`, TASK-1.5).
 
 ---
 
 ## Phase 2: Upstream Clients & In-Memory Caching
+
 **Objective:** Build resilient, auto-reconnecting async clients for Infinite Flight v2 & v3 with rate-limit protection.
 
 - [ ] Write integration test fixtures mocking IF v2 and v3 responses using `respx` / `aioresponses`.
@@ -43,6 +42,7 @@ flowchart LR
 ---
 
 ## Phase 3: Live Fleet Fusion Engine
+
 **Objective:** Migrate and harden the state fusion engine, TOD holding detection, and corridor scoring heuristics.
 
 - [ ] Author unit tests in `tests/unit/test_fleet_fusion.py`:
@@ -57,6 +57,7 @@ flowchart LR
 ---
 
 ## Phase 4: Core REST Fleet Endpoints
+
 **Objective:** Expose clean, domain-specific endpoints for downstream consumers.
 
 - [ ] Author tests in `tests/e2e/test_fleet_api.py`.
@@ -69,6 +70,7 @@ flowchart LR
 ---
 
 ## Phase 5: Crew Center & Database Wrappers
+
 **Objective:** Centralize PIREP submission, aircraft catalog resolution, and pilot identification.
 
 - [ ] Author unit and integration tests for Crew Center submission and MySQL queries.
@@ -80,6 +82,7 @@ flowchart LR
 ---
 
 ## Phase 6: Downstream Integration & Verification
+
 **Objective:** Connect the Oryxie Discord Bot and WebApp backend to OryxGate.
 
 - [ ] Switch Oryxie Discord bot from direct `IFLiveManager` to querying OryxGate REST endpoints.

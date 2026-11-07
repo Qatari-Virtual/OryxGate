@@ -8,17 +8,18 @@ OryxGate is built using **Spec-Driven Development (SDD)**. The documents in this
 
 ## Documentation Index
 
-| Document | Purpose | Target Audience |
-| :--- | :--- | :--- |
-| [**Spec-Driven Development**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/spec-driven-development.md) | Standard Operating Procedure: Document First $\rightarrow$ Tests Second $\rightarrow$ Code Third | All Agents & Engineers |
-| [**System Architecture**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/architecture.md) | High-level topology, component diagrams, caching hierarchy, and security model | System Architects & Developers |
-| [**Configuration Specification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/configuration-spec.md) | Environment variables, validation rules, secrets masking, and Pydantic schema | All Engineers & Ops |
-| [**API Specification (v1)**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/api-spec.md) | Complete REST API contracts, Bearer token auth, request/response models | Frontend, Bot & Gateway Devs |
-| [**Fleet Fusion Engine**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/fleet-fusion-engine.md) | In-depth spec for v2/v3 telemetry fusion, TOD holding heuristic, and matching math | Telemetry & Data Engineers |
-| [**Upstream Integrations**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/upstream-integrations.md) | Contracts and caching rules for IF v2, IF v3, Crew Center API, and MySQL | Integration Developers |
-| [**Live Data Verification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/verification-guide.md) | Protocols to verify state against the simulator and live.infiniteflight.com | QA & Integration Engineers |
-| [**Implementation Roadmap**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/roadmap.md) | Phased project milestones from empty repo to production-ready microservice | Project Leads & Agents |
-| [**Tasks & Sprints Plan**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/tasks-and-sprints.md) | Granular task breakdown, dependency graph, and acceptance criteria | All Engineers & Agents |
+| Document                                                                                                   | Purpose                                                                                          | Target Audience                |
+| :--------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :----------------------------- |
+| [**Spec-Driven Development**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/spec-driven-development.md) | Standard Operating Procedure: Document First $\rightarrow$ Tests Second $\rightarrow$ Code Third | All Agents & Engineers         |
+| [**System Architecture**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/architecture.md)                | High-level topology, component diagrams, caching hierarchy, and security model                   | System Architects & Developers |
+| [**Configuration Specification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/configuration-spec.md)  | Environment variables, validation rules, secrets masking, and Pydantic schema                    | All Engineers & Ops            |
+| [**Security & Authentication**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/security-spec.md)        | Bearer token auth, scopes, constant-time validation, and dependencies                           | Security & API Engineers       |
+| [**API Specification (v1)**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/api-spec.md)                 | Complete REST API contracts, Bearer token auth, request/response models                          | Frontend, Bot & Gateway Devs   |
+| [**Fleet Fusion Engine**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/fleet-fusion-engine.md)         | In-depth spec for v2/v3 telemetry fusion, TOD holding heuristic, and matching math               | Telemetry & Data Engineers     |
+| [**Upstream Integrations**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/upstream-integrations.md)     | Contracts and caching rules for IF v2, IF v3, Crew Center API, and MySQL                         | Integration Developers         |
+| [**Live Data Verification**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/verification-guide.md)       | Protocols to verify state against the simulator and live.infiniteflight.com                      | QA & Integration Engineers     |
+| [**Implementation Roadmap**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/roadmap.md)                  | Phased project milestones from empty repo to production-ready microservice                       | Project Leads & Agents         |
+| [**Tasks & Sprints Plan**](file:///c:/Users/bum90/Bumy/Coding/OryxGate/docs/tasks-and-sprints.md)          | Granular task breakdown, dependency graph, and acceptance criteria                               | All Engineers & Agents         |
 
 ---
 
