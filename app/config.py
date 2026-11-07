@@ -21,23 +21,23 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
         if v.startswith("[") or v.endswith("]") or v.startswith("{") or v.endswith("}"):
             if not (v.startswith("[") and v.endswith("]")):
                 raise ValueError(
-                    f"Malformed bracketed token list, expected matching '[' and ']': '{v}'"
+                    "Malformed bracketed token list, expected matching '[' and ']'."
                 )
             try:
                 parsed = json.loads(v)
-            except Exception as e:
+            except Exception:
                 raise ValueError(
-                    f"Invalid JSON array for token list: '{v}'"
-                ) from e
+                    "Invalid JSON array syntax for token list."
+                ) from None
             if not isinstance(parsed, list):
                 raise ValueError(
-                    f"Token list JSON must be an array, got {type(parsed).__name__}: '{v}'"
+                    f"Token list JSON must be an array, got {type(parsed).__name__}."
                 )
             parsed_tokens: list[SecretStr] = []
             for item in parsed:
                 if isinstance(item, (dict, list, set)):
                     raise ValueError(
-                        f"Token list elements must be scalar token strings, got {type(item).__name__}: {item}"
+                        f"Token list elements must be scalar token strings, got {type(item).__name__}."
                     )
                 item_str = str(item).strip()
                 if item_str:
@@ -67,6 +67,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        hide_input_in_errors=True,
         extra="ignore",
     )
 

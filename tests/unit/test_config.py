@@ -170,6 +170,31 @@ def test_malformed_json_tokens_raises_validation_error(
     assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
 
 
+@pytest.mark.parametrize(
+    "malformed_template",
+    [
+        '["{secret}",]',  # trailing comma
+        '["{secret}"',  # unclosed bracket
+        '"{secret}"]',  # missing opening bracket
+        '{{"tok": "{secret}"}}',  # object with secret
+    ],
+)
+def test_malformed_json_tokens_omits_raw_secrets_in_validation_error(
+    valid_config_dict: dict[str, str], malformed_template: str
+) -> None:
+    """Verify that malformed token parsing errors do not leak credential values in ValidationError."""
+    secret_marker = "super_confidential_raw_bearer_token_xyz"
+    valid_config_dict["GATEWAY_API_TOKENS"] = malformed_template.format(secret=secret_marker)
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+
+    error_str = str(exc_info.value)
+    error_repr = repr(exc_info.value)
+    assert secret_marker not in error_str, f"Secret leaked in error string: {error_str}"
+    assert secret_marker not in error_repr, f"Secret leaked in error repr: {error_repr}"
+
+
 def test_empty_gateway_tokens_raises_validation_error(
     valid_config_dict: dict[str, str],
 ) -> None:

@@ -54,8 +54,9 @@ OryxGate relies on environment variables for external service integration creden
    At least one non-empty gateway token is mandatory. Providing an empty list or blank string raises `ValidationError`.
 3. **URL Normalization:**
    `CC_API_BASE_URL` validates HTTP/HTTPS schema and strips trailing slashes to prevent malformed endpoint concatenation (`//pireps`).
-4. **Secret Masking:**
-   All secret fields (`GATEWAY_API_TOKENS`, `ADMIN_API_TOKENS`, `IF_API_KEY`, `CC_API_KEY`, `DB_PASSWORD`) must never output unmasked text in `__repr__`, `__str__`, or Pydantic serialization.
+4. **Secret Masking & Zero-Leak Validation:**
+   All secret fields (`GATEWAY_API_TOKENS`, `ADMIN_API_TOKENS`, `IF_API_KEY`, `CC_API_KEY`, `DB_PASSWORD`) must never output unmasked text in `__repr__`, `__str__`, logs, or Pydantic serialization.
+   Furthermore, validation and parsing error messages for secret fields (including token list JSON decode errors) must never interpolate raw input strings or chain unmasked exception contexts, guaranteeing credentials in malformed payloads are never leaked into error messages or tracebacks.
 5. **Case-Insensitive Environment Lookup & Attribute Access:**
    Variables can be populated from uppercase or lowercase environment keys. Attribute access on `Settings` instances supports both lowercase (`settings.db_host`) and uppercase (`settings.DB_HOST`) naming conventions.
 
