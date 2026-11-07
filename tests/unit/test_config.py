@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -148,6 +149,43 @@ def test_token_parsing_json_format(valid_config_dict: dict[str, str]) -> None:
         "tok_json_2",
     ]
     assert [t.get_secret_value() for t in settings.admin_api_tokens] == ["admin_json_1"]
+
+
+@pytest.mark.parametrize(
+    "non_string_tokens",
+    [
+        "[null]",
+        "[true]",
+        "[false]",
+        "[12345]",
+        "[12.34]",
+        '["valid_tok", null]',
+        '["valid_tok", 42]',
+    ],
+)
+def test_non_string_json_tokens_rejected(
+    valid_config_dict: dict[str, str], non_string_tokens: str
+) -> None:
+    """Verify that non-string scalars in JSON token lists are rejected rather than stringified."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = non_string_tokens
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+
+def test_non_string_native_iterable_tokens_rejected(
+    valid_config_dict: dict[str, Any],
+) -> None:
+    """Verify that non-string objects in native iterables are rejected rather than stringified."""
+    valid_config_dict["GATEWAY_API_TOKENS"] = [None]
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
+
+    valid_config_dict["GATEWAY_API_TOKENS"] = [12345]
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**valid_config_dict, _env_file=None)
+    assert "GATEWAY_API_TOKENS" in str(exc_info.value).upper()
 
 
 @pytest.mark.parametrize(

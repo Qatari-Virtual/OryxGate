@@ -35,11 +35,11 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
                 )
             parsed_tokens: list[SecretStr] = []
             for item in parsed:
-                if isinstance(item, (dict, list, set)):
+                if not isinstance(item, str):
                     raise ValueError(
-                        f"Token list elements must be scalar token strings, got {type(item).__name__}."
+                        f"Token list elements must be strings, got {type(item).__name__}."
                     )
-                item_str = str(item).strip()
+                item_str = item.strip()
                 if item_str:
                     parsed_tokens.append(SecretStr(item_str))
             return parsed_tokens
@@ -52,10 +52,17 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
         tokens: list[SecretStr] = []
         for item in value:
             if isinstance(item, SecretStr):
-                if item.get_secret_value().strip():
+                raw = item.get_secret_value().strip()
+                if raw:
                     tokens.append(item)
-            elif str(item).strip():
-                tokens.append(SecretStr(str(item).strip()))
+            elif isinstance(item, str):
+                raw = item.strip()
+                if raw:
+                    tokens.append(SecretStr(raw))
+            else:
+                raise ValueError(
+                    f"Token list elements must be strings, got {type(item).__name__}."
+                )
         return tokens
     return []
 
