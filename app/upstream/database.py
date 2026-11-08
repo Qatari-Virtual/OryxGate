@@ -108,7 +108,10 @@ class DatabaseManager:
                 connect_timeout=self._connect_timeout,
             )
             self._pool_generation += 1
-            logger.info("MySQL connection pool established successfully (generation %s).", self._pool_generation)
+            logger.info(
+                "MySQL connection pool established successfully (generation %s).",
+                self._pool_generation,
+            )
 
     async def close(self) -> None:
         """Close all connections and terminate the pool gracefully."""
@@ -206,6 +209,7 @@ class DatabaseManager:
         params: Any = None,
     ) -> dict[str, Any] | None:
         """Execute query and fetch a single result row as a dictionary."""
+
         async def _query() -> dict[str, Any] | None:
             async with self.acquire() as conn, conn.cursor() as cur:
                 if params is not None:
@@ -223,6 +227,7 @@ class DatabaseManager:
         params: Any = None,
     ) -> list[dict[str, Any]]:
         """Execute query and fetch all result rows as a list of dictionaries."""
+
         async def _query() -> list[dict[str, Any]]:
             async with self.acquire() as conn, conn.cursor() as cur:
                 if params is not None:
@@ -233,6 +238,37 @@ class DatabaseManager:
                 return list(rows) if rows is not None else []
 
         return await self._execute_with_retry(_query)
+
+    async def insert(
+        self,
+        query: str,
+        params: Any = None,
+    ) -> int:
+        """Execute an insert query statement and return rowcount or lastrowid.
+
+        Note: If an OperationalError occurs, pool reconnection is triggered to heal
+        subsequent queries, but the statement itself is not re-executed to prevent
+        duplicate side-effects.
+        """
+        if not self.is_connected:
+            await self.connect()
+
+        current_gen = self._pool_generation
+        try:
+            async with self.acquire() as conn, conn.cursor() as cur:
+                if params is not None:
+                    await cur.execute(query, params)
+                else:
+                    await cur.execute(query)
+                return int(cur.lastrowid if cur.lastrowid else cur.rowcount)
+        except aiomysql.OperationalError as exc:
+            if is_disconnect_error(exc):
+                logger.warning(
+                    "MySQL disconnect during insert (%s). Reconnecting pool and surfacing error to avoid write duplication...",
+                    exc,
+                )
+                await self._reconnect(failed_generation=current_gen)
+            raise
 
     async def execute(
         self,

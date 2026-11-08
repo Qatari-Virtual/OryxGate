@@ -19,7 +19,11 @@ async def test_live_database_connection() -> None:
     except (ValidationError, Exception) as exc:
         pytest.skip(f"Environment settings invalid or missing required variables: {exc}")
 
-    if not settings.db_host or settings.db_host in ("127.0.0.1", "localhost") and not os.environ.get("RUN_LOCAL_DB_TESTS"):
+    if (
+        not settings.db_host
+        or settings.db_host in ("127.0.0.1", "localhost")
+        and not os.environ.get("RUN_LOCAL_DB_TESTS")
+    ):
         # If DB_HOST is set to default and no flag is present, skip
         pytest.skip("Live database credentials not configured in environment.")
 

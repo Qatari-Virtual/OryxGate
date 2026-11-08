@@ -40,6 +40,22 @@ Infinite Flight v3 access is anchored to the organization owner/executive accoun
   - If the refresh token is revoked or invalid (`invalid_grant`), OryxGate logs an alert that re-authorization is required.
 - **Decoupled Downstream:** Downstream consumers (Discord bot, WebApp) never touch IF OAuth tokens or need individual pilot OAuth sessions; they interact exclusively through OryxGate's API.
 
+#### `IFLiveTokensModel` Specification (`app/models/oauth.py`)
+Provides persistence and retrieval operations on the `live_if_oauth_tokens` MySQL table:
+
+- **Methods:**
+  - `get_by_pilot_id(pilot_id: int) -> dict[str, Any] | None`: Retrieves token row by pilot ID. Returned dictionary timestamps (`expires_at`, `created_at`, `updated_at`) are guaranteed to be timezone-aware UTC `datetime` objects.
+  - `get_by_if_user_id(if_user_id: str) -> dict[str, Any] | None`: Retrieves token row by Infinite Flight user UUID.
+  - `get_pending_by_state(state: str) -> dict[str, Any] | None`: Retrieves pending PKCE authorization row matching `pending:<state>:%`.
+  - `save_token(pilot_id: int, access_token: str, refresh_token: str, expires_at: datetime | str | int | float, scope: str, if_user_id: str | None = None) -> int`: Upserts token record using `INSERT ... ON DUPLICATE KEY UPDATE`. Accepts timezone-aware `datetime`, naive `datetime` (assumed UTC), ISO 8601 string, or unix timestamp, normalizing and persisting in UTC.
+  - `update_token(pilot_id: int, access_token: str, refresh_token: str, expires_at: datetime | str | int | float, scope: str) -> int`: Updates access token, refresh token, UTC expiration date, and scope for a given `pilot_id`.
+  - `update_if_user_id(pilot_id: int, if_user_id: str) -> int`: Updates the Infinite Flight user UUID for a given `pilot_id`.
+  - `set_pending(pilot_id: int, state: str, verifier: str) -> int`: Inserts or updates a pending PKCE state record formatted as `pending:<state>:<verifier>`.
+  - `delete_token(pilot_id: int) -> int`: Deletes the token row for a given `pilot_id`.
+- **Domain Schema (`OAuthTokenRecord`):**
+  Pydantic model representing a token record with fields `pilot_id`, `access_token`, `refresh_token`, `expires_at` (timezone-aware UTC), `scope`, `if_user_id`, `created_at`, and `updated_at`. Includes `is_expired(buffer_seconds=60)` and `is_pending` helper properties.
+
+
 ### Rate Limit Handling (429)
 Infinite Flight v3 returns a `429` status when throttled. The response body contains a wait interval string (e.g. `"Please retry after 5 seconds"`).
 - OryxGate parses the required wait duration using regex `(\d+)\s*second`.
