@@ -14,6 +14,25 @@ logger = logging.getLogger("oryxgate.upstream.database")
 
 T = TypeVar("T")
 
+# MySQL client error codes representing lost or dropped connections
+# CR_CONNECTION_ERROR (2002), CR_CONN_HOST_ERROR (2003), CR_UNKNOWN_HOST (2005),
+# CR_SERVER_GONE_ERROR (2006), CR_SERVER_LOST (2013), CR_SERVER_LOST_EXTENDED (2055)
+DISCONNECT_ERROR_CODES: frozenset[int] = frozenset({2002, 2003, 2005, 2006, 2013, 2055})
+
+
+def is_disconnect_error(exc: Exception) -> bool:
+    """Return True if the exception indicates a severed connection or unreachable server.
+
+    Contention, concurrency, and transaction errors (e.g. Deadlock 1213, Lock wait timeout 1205,
+    or Max connections 1040) are NOT treated as disconnects and should not tear down the pool.
+    """
+    if not isinstance(exc, aiomysql.OperationalError):
+        return False
+    if exc.args and isinstance(exc.args[0], int) and exc.args[0] in DISCONNECT_ERROR_CODES:
+        return True
+    msg = str(exc).lower()
+    return "gone away" in msg or "lost connection" in msg
+
 
 class DatabaseManager:
     """Manages an asynchronous MySQL connection pool with self-healing reconnection."""
@@ -164,7 +183,7 @@ class DatabaseManager:
         self,
         operation: Callable[[], Coroutine[Any, Any, T]],
     ) -> T:
-        """Execute a read operation with transparent pool reconnection on OperationalError."""
+        """Execute a read operation with transparent pool reconnection on connection drops."""
         if not self.is_connected:
             await self.connect()
 
@@ -172,8 +191,10 @@ class DatabaseManager:
         try:
             return await operation()
         except aiomysql.OperationalError as exc:
+            if not is_disconnect_error(exc):
+                raise
             logger.warning(
-                "MySQL OperationalError encountered (%s). Reconnecting pool and retrying...",
+                "MySQL disconnect OperationalError encountered (%s). Reconnecting pool and retrying...",
                 exc,
             )
             await self._reconnect(failed_generation=current_gen)
@@ -236,11 +257,12 @@ class DatabaseManager:
                     await cur.execute(query)
                 return int(cur.rowcount)
         except aiomysql.OperationalError as exc:
-            logger.warning(
-                "MySQL OperationalError during execute (%s). Reconnecting pool and surfacing error to avoid write duplication...",
-                exc,
-            )
-            await self._reconnect(failed_generation=current_gen)
+            if is_disconnect_error(exc):
+                logger.warning(
+                    "MySQL disconnect during execute (%s). Reconnecting pool and surfacing error to avoid write duplication...",
+                    exc,
+                )
+                await self._reconnect(failed_generation=current_gen)
             raise
 
     async def ping(self) -> bool:

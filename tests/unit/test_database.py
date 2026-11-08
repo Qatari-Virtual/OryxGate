@@ -392,3 +392,100 @@ async def test_non_operational_error_does_not_retry(mock_settings: Settings) -> 
         # Must not have created a second pool
         assert mock_create_pool.await_count == 1
         await db_mgr.close()
+
+
+def test_is_disconnect_error_helper() -> None:
+    """Test is_disconnect_error identifies connection drops vs transaction/lock errors."""
+    from app.upstream.database import is_disconnect_error
+
+    # Disconnect codes
+    for code in (2002, 2003, 2005, 2006, 2013, 2055):
+        assert is_disconnect_error(aiomysql.OperationalError(code, "Connection error")) is True
+
+    # Fallback to message string
+    assert is_disconnect_error(aiomysql.OperationalError(9999, "MySQL server has gone away")) is True
+    assert is_disconnect_error(aiomysql.OperationalError(9999, "Lost connection to MySQL")) is True
+
+    # Contention, locks, and capacity codes should NOT be treated as disconnects
+    assert is_disconnect_error(aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")) is False
+    assert is_disconnect_error(aiomysql.OperationalError(1205, "Lock wait timeout exceeded")) is False
+    assert is_disconnect_error(aiomysql.OperationalError(1040, "Too many connections")) is False
+
+    # Other exception types
+    assert is_disconnect_error(ValueError("Some error")) is False
+    assert is_disconnect_error(aiomysql.ProgrammingError(1064, "Syntax error")) is False
+
+
+@pytest.mark.asyncio
+async def test_operational_error_deadlock_does_not_reconnect_pool(mock_settings: Settings) -> None:
+    """AC: ER_LOCK_DEADLOCK (1213) does not trigger pool teardown/reconnect and raises directly."""
+    from app.upstream.database import DatabaseManager
+
+    cursor = AsyncMock()
+    cursor.execute.side_effect = aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")
+    conn = create_mock_connection(cursor)
+    pool = create_mock_pool(conn)
+
+    with patch("aiomysql.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        mock_create_pool.return_value = pool
+        db_mgr = DatabaseManager(settings=mock_settings)
+
+        with pytest.raises(aiomysql.OperationalError) as exc_info:
+            await db_mgr.fetch_one("SELECT * FROM pilots WHERE id = %s", (1,))
+
+        assert exc_info.value.args[0] == 1213
+        # Pool should not be recreated or closed
+        assert mock_create_pool.await_count == 1
+        pool.close.assert_not_called()
+
+        await db_mgr.close()
+
+
+@pytest.mark.asyncio
+async def test_operational_error_lock_wait_timeout_does_not_reconnect_pool(mock_settings: Settings) -> None:
+    """AC: ER_LOCK_WAIT_TIMEOUT (1205) does not trigger pool teardown/reconnect and raises directly."""
+    from app.upstream.database import DatabaseManager
+
+    cursor = AsyncMock()
+    cursor.execute.side_effect = aiomysql.OperationalError(1205, "Lock wait timeout exceeded; try restarting transaction")
+    conn = create_mock_connection(cursor)
+    pool = create_mock_pool(conn)
+
+    with patch("aiomysql.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        mock_create_pool.return_value = pool
+        db_mgr = DatabaseManager(settings=mock_settings)
+
+        with pytest.raises(aiomysql.OperationalError) as exc_info:
+            await db_mgr.fetch_one("SELECT * FROM pilots WHERE id = %s", (1,))
+
+        assert exc_info.value.args[0] == 1205
+        # Pool should not be recreated or closed
+        assert mock_create_pool.await_count == 1
+        pool.close.assert_not_called()
+
+        await db_mgr.close()
+
+
+@pytest.mark.asyncio
+async def test_execute_deadlock_does_not_reconnect_pool(mock_settings: Settings) -> None:
+    """AC: execute() with ER_LOCK_DEADLOCK (1213) does not trigger pool teardown/reconnect."""
+    from app.upstream.database import DatabaseManager
+
+    cursor = AsyncMock()
+    cursor.execute.side_effect = aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")
+    conn = create_mock_connection(cursor)
+    pool = create_mock_pool(conn)
+
+    with patch("aiomysql.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        mock_create_pool.return_value = pool
+        db_mgr = DatabaseManager(settings=mock_settings)
+
+        with pytest.raises(aiomysql.OperationalError) as exc_info:
+            await db_mgr.execute("UPDATE pilots SET status = 1 WHERE id = 1")
+
+        assert exc_info.value.args[0] == 1213
+        # Pool should not be recreated or closed
+        assert mock_create_pool.await_count == 1
+        pool.close.assert_not_called()
+
+        await db_mgr.close()
