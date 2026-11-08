@@ -98,11 +98,27 @@ Returns the active aircraft catalog for the virtual airline, mapping human-reada
 ## 4. MySQL Database (`aiomysql`)
 
 ### Overview
-OryxGate communicates directly with the shared MySQL database for pilot verification, token persistence, and analytics.
+OryxGate communicates directly with the shared MySQL database for pilot verification, token persistence, and analytics. Connection pooling and query execution are managed by `DatabaseManager` in `app/upstream/database.py`.
 
-### Connection Management
-- Utilizes `aiomysql.create_pool` with min 1, max 10 connections.
-- Automatically handles reconnection if connections become stale (`aiomysql.OperationalError`).
+### Connection Management & Specification (`DatabaseManager`)
+- **Connection Pool:** Uses `aiomysql.create_pool` with `minsize=1`, `maxsize=10`, `autocommit=True`, and `charset="utf8mb4"`.
+- **Cursor Type:** `aiomysql.DictCursor` by default, ensuring all query rows return as `dict[str, Any]` mappings.
+- **Configuration:** Reads credentials from `Settings` (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
+- **Lifecycle Methods:**
+  - `connect() -> None`: Initializes the connection pool if not already established. Thread-safe/async-safe with `asyncio.Lock`.
+  - `close() -> None`: Gracefully drains and closes the connection pool via `pool.close()` and `await pool.wait_closed()`.
+- **Query Execution API:**
+  - `acquire() -> AsyncIterator[aiomysql.Connection]`: Context manager acquiring a connection from the pool and releasing it safely in a `finally` block.
+  - `fetch_one(query: str, params: tuple | list | dict | None = None) -> dict[str, Any] | None`: Acquires a connection, executes the parameterized read query using `DictCursor`, and returns a single dictionary or `None`. Retries once transparently on `OperationalError`.
+  - `fetch_all(query: str, params: tuple | list | dict | None = None) -> list[dict[str, Any]]`: Acquires a connection, executes the parameterized read query using `DictCursor`, and returns a list of dictionaries. Retries once transparently on `OperationalError`.
+  - `execute(query: str, params: tuple | list | dict | None = None) -> int`: Acquires a connection, executes a mutation statement (INSERT, UPDATE, DELETE), and returns `cursor.rowcount`. If an `OperationalError` occurs, the pool is re-established for future queries, but the statement itself is **never silently retried** to avoid duplicate write side-effects under `autocommit=True`; the error is surfaced to the caller.
+  - `ping() -> bool`: Executes `SELECT 1` to verify database reachability and liveness; returns `True` if successful, `False` on failure.
+- **Self-Healing Reconnection Strategy & Stampede Protection:**
+  - **Connection Staleness Filtering (`is_disconnect_error`):** Pool teardown and rebuild are restricted strictly to actual network connection severing and server-gone error codes (`2002`, `2003`, `2005`, `2006`, `2013`, `2055`). Server-side contention and concurrency `OperationalError` codes (e.g. `1213` Deadlock, `1205` Lock wait timeout, `1040` Too many connections) **never** trigger pool teardown or rebuilding, and are propagated directly to the caller.
+  - **Pool Generation Marker:** The manager tracks a monotonic `_pool_generation` counter. Callers capturing an `OperationalError` pass their observed `failed_generation` to `_reconnect()`. If `_pool_generation > failed_generation` upon acquiring `_lock`, the rebuild is bypassed as a no-op because another concurrent caller has already renewed the pool.
+  - **Read-Path Transparent Retry:** When executing read queries (`fetch_one`, `fetch_all`, `ping`), disconnect `OperationalError` codes trigger `_reconnect(failed_generation)` and transparently retry the query up to 1 time.
+  - **Write-Path Safety:** For disconnect errors during `execute()`, `_reconnect(failed_generation)` is triggered to ensure subsequent operations acquire a healthy pool, but surfaces the underlying `OperationalError` without re-executing the statement to prevent duplicate mutation.
+  - **Non-Operational Failures:** Syntax, constraint, or table errors (`ProgrammingError`, `IntegrityError`) are never retried and bubble up immediately.
 
 ### Key Table Schemas
 
