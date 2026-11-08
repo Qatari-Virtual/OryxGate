@@ -109,14 +109,15 @@ OryxGate communicates directly with the shared MySQL database for pilot verifica
   - `close() -> None`: Gracefully drains and closes the connection pool via `pool.close()` and `await pool.wait_closed()`.
 - **Query Execution API:**
   - `acquire() -> AsyncIterator[aiomysql.Connection]`: Context manager acquiring a connection from the pool and releasing it safely in a `finally` block.
-  - `fetch_one(query: str, params: tuple | list | dict | None = None) -> dict[str, Any] | None`: Acquires a connection, executes the parameterized query using `DictCursor`, and returns a single dictionary or `None`.
-  - `fetch_all(query: str, params: tuple | list | dict | None = None) -> list[dict[str, Any]]`: Acquires a connection, executes the parameterized query using `DictCursor`, and returns a list of dictionaries.
-  - `execute(query: str, params: tuple | list | dict | None = None) -> int`: Acquires a connection, executes a statement (INSERT, UPDATE, DELETE), and returns `cursor.rowcount`.
+  - `fetch_one(query: str, params: tuple | list | dict | None = None) -> dict[str, Any] | None`: Acquires a connection, executes the parameterized read query using `DictCursor`, and returns a single dictionary or `None`. Retries once transparently on `OperationalError`.
+  - `fetch_all(query: str, params: tuple | list | dict | None = None) -> list[dict[str, Any]]`: Acquires a connection, executes the parameterized read query using `DictCursor`, and returns a list of dictionaries. Retries once transparently on `OperationalError`.
+  - `execute(query: str, params: tuple | list | dict | None = None) -> int`: Acquires a connection, executes a mutation statement (INSERT, UPDATE, DELETE), and returns `cursor.rowcount`. If an `OperationalError` occurs, the pool is re-established for future queries, but the statement itself is **never silently retried** to avoid duplicate write side-effects under `autocommit=True`; the error is surfaced to the caller.
   - `ping() -> bool`: Executes `SELECT 1` to verify database reachability and liveness; returns `True` if successful, `False` on failure.
-- **Self-Healing Reconnection Strategy:**
-  - When executing queries (`fetch_one`, `fetch_all`, `execute`, `ping`), intercept `aiomysql.OperationalError` (e.g., MySQL server gone away, lost connection).
-  - On error, log a warning with context, discard the severed pool, establish a fresh pool, and retry the query transparently (up to 1 retry).
-  - If retry fails or a non-operational error (e.g., syntax or constraint errors) occurs, bubble up the exception without retrying.
+- **Self-Healing Reconnection Strategy & Stampede Protection:**
+  - **Pool Generation Marker:** The manager tracks a monotonic `_pool_generation` counter. Callers capturing an `OperationalError` pass their observed `failed_generation` to `_reconnect()`. If `_pool_generation > failed_generation` upon acquiring `_lock`, the rebuild is bypassed as a no-op because another concurrent caller has already renewed the pool.
+  - **Read-Path Transparent Retry:** When executing read queries (`fetch_one`, `fetch_all`, `ping`), `aiomysql.OperationalError` triggers `_reconnect(failed_generation)` and transparently retries the query up to 1 time.
+  - **Write-Path Safety:** `execute()` triggers `_reconnect(failed_generation)` to ensure subsequent operations acquire a healthy pool, but surfaces the underlying `OperationalError` to prevent duplicate mutation.
+  - **Non-Operational Failures:** Syntax, constraint, or table errors (`ProgrammingError`, `IntegrityError`) are never retried and bubble up immediately.
 
 ### Key Table Schemas
 

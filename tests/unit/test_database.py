@@ -219,6 +219,83 @@ async def test_execute_query(mock_settings: Settings) -> None:
 
 
 @pytest.mark.asyncio
+async def test_execute_does_not_retry_write_on_operational_error(mock_settings: Settings) -> None:
+    """AC: execute() reconnects severed pool but does not re-run write statements to prevent duplicate side effects."""
+    from app.upstream.database import DatabaseManager
+
+    failing_cursor = AsyncMock()
+    failing_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+    failing_conn = create_mock_connection(failing_cursor)
+    failing_pool = create_mock_pool(failing_conn)
+
+    fresh_cursor = create_mock_cursor()
+    fresh_conn = create_mock_connection(fresh_cursor)
+    fresh_pool = create_mock_pool(fresh_conn)
+
+    with patch("aiomysql.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        mock_create_pool.side_effect = [failing_pool, fresh_pool]
+        db_mgr = DatabaseManager(settings=mock_settings)
+
+        with pytest.raises(aiomysql.OperationalError):
+            await db_mgr.execute("INSERT INTO pilots (callsign) VALUES (%s)", ("QRV101",))
+
+        # Statement must only be executed once, never retried blindly
+        failing_cursor.execute.assert_awaited_once_with(
+            "INSERT INTO pilots (callsign) VALUES (%s)",
+            ("QRV101",),
+        )
+        fresh_cursor.execute.assert_not_awaited()
+
+        # Pool should have been reconnected to heal subsequent queries
+        assert mock_create_pool.await_count == 2
+        assert db_mgr.pool is fresh_pool
+
+        await db_mgr.close()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_reconnect_stampede_protection(mock_settings: Settings) -> None:
+    """AC: Concurrent failing queries do not trigger sequential pool rebuilds and do not discard healthy pools."""
+    import asyncio
+
+    from app.upstream.database import DatabaseManager
+
+    # Initial pool with failing cursor
+    failing_cursor = AsyncMock()
+    failing_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+    failing_conn = create_mock_connection(failing_cursor)
+    failing_pool = create_mock_pool(failing_conn)
+
+    # Reconnected fresh pool with successful cursor
+    success_cursor = create_mock_cursor(fetchone_result={"status": "ok"})
+    success_conn = create_mock_connection(success_cursor)
+    success_pool = create_mock_pool(success_conn)
+
+    with patch("aiomysql.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        mock_create_pool.side_effect = [failing_pool, success_pool]
+        db_mgr = DatabaseManager(settings=mock_settings)
+
+        # First connect to establish failing pool
+        await db_mgr.connect()
+        assert mock_create_pool.await_count == 1
+
+        # Run two concurrent fetch_one calls that encounter the failing pool at the same generation
+        results = await asyncio.gather(
+            db_mgr.fetch_one("SELECT status FROM config WHERE id = 1"),
+            db_mgr.fetch_one("SELECT status FROM config WHERE id = 2"),
+        )
+
+        assert list(results) == [{"status": "ok"}, {"status": "ok"}]
+        # Pool must be rebuilt exactly once, NOT twice
+        assert mock_create_pool.await_count == 2
+        assert db_mgr.pool is success_pool
+        failing_pool.close.assert_called_once()
+        success_pool.close.assert_not_called()
+
+        await db_mgr.close()
+
+
+@pytest.mark.asyncio
 async def test_ping_success_and_failure(mock_settings: Settings) -> None:
     """Test ping returns True on responsive database and False on error."""
     from app.upstream.database import DatabaseManager

@@ -34,12 +34,18 @@ class DatabaseManager:
         self._autocommit = autocommit
         self._charset = charset
         self._pool: aiomysql.Pool | None = None
+        self._pool_generation: int = 0
         self._lock = asyncio.Lock()
 
     @property
     def pool(self) -> aiomysql.Pool | None:
         """Return the current underlying aiomysql pool instance."""
         return self._pool
+
+    @property
+    def generation(self) -> int:
+        """Return the current pool generation counter."""
+        return self._pool_generation
 
     @property
     def is_connected(self) -> bool:
@@ -82,7 +88,8 @@ class DatabaseManager:
                 cursorclass=aiomysql.DictCursor,
                 connect_timeout=self._connect_timeout,
             )
-            logger.info("MySQL connection pool established successfully.")
+            self._pool_generation += 1
+            logger.info("MySQL connection pool established successfully (generation %s).", self._pool_generation)
 
     async def close(self) -> None:
         """Close all connections and terminate the pool gracefully."""
@@ -94,9 +101,25 @@ class DatabaseManager:
                 self._pool = None
                 logger.info("MySQL connection pool closed.")
 
-    async def _reconnect(self) -> None:
-        """Tear down severed pool and establish a fresh connection pool."""
+    async def _reconnect(self, failed_generation: int | None = None) -> None:
+        """Tear down severed pool and establish a fresh connection pool.
+
+        If another concurrent caller has already renewed the pool (generation advanced),
+        this rebuild is bypassed to prevent serialized thundering-herd reconnect stampedes.
+        """
         async with self._lock:
+            if (
+                failed_generation is not None
+                and self._pool_generation > failed_generation
+                and self.is_connected
+            ):
+                logger.debug(
+                    "Pool already reconnected by concurrent caller (gen %s > %s).",
+                    self._pool_generation,
+                    failed_generation,
+                )
+                return
+
             if self._pool is not None:
                 try:
                     self._pool.close()
@@ -120,7 +143,11 @@ class DatabaseManager:
                 cursorclass=aiomysql.DictCursor,
                 connect_timeout=self._connect_timeout,
             )
-            logger.info("MySQL connection pool re-established successfully.")
+            self._pool_generation += 1
+            logger.info(
+                "MySQL connection pool re-established successfully (generation %s).",
+                self._pool_generation,
+            )
 
     @asynccontextmanager
     async def acquire(self) -> AsyncIterator[aiomysql.Connection]:
@@ -137,10 +164,11 @@ class DatabaseManager:
         self,
         operation: Callable[[], Coroutine[Any, Any, T]],
     ) -> T:
-        """Execute a database operation with transparent pool reconnection on OperationalError."""
+        """Execute a read operation with transparent pool reconnection on OperationalError."""
         if not self.is_connected:
             await self.connect()
 
+        current_gen = self._pool_generation
         try:
             return await operation()
         except aiomysql.OperationalError as exc:
@@ -148,7 +176,7 @@ class DatabaseManager:
                 "MySQL OperationalError encountered (%s). Reconnecting pool and retrying...",
                 exc,
             )
-            await self._reconnect()
+            await self._reconnect(failed_generation=current_gen)
             return await operation()
 
     async def fetch_one(
@@ -190,16 +218,30 @@ class DatabaseManager:
         query: str,
         params: Any = None,
     ) -> int:
-        """Execute a query statement and return the number of affected rows."""
-        async def _query() -> int:
+        """Execute a query statement and return the number of affected rows.
+
+        Note: If an OperationalError occurs, pool reconnection is triggered to heal
+        subsequent queries, but the statement itself is not re-executed to prevent
+        duplicate side-effects.
+        """
+        if not self.is_connected:
+            await self.connect()
+
+        current_gen = self._pool_generation
+        try:
             async with self.acquire() as conn, conn.cursor() as cur:
                 if params is not None:
                     await cur.execute(query, params)
                 else:
                     await cur.execute(query)
                 return int(cur.rowcount)
-
-        return await self._execute_with_retry(_query)
+        except aiomysql.OperationalError as exc:
+            logger.warning(
+                "MySQL OperationalError during execute (%s). Reconnecting pool and surfacing error to avoid write duplication...",
+                exc,
+            )
+            await self._reconnect(failed_generation=current_gen)
+            raise
 
     async def ping(self) -> bool:
         """Check database health and reachability using SELECT 1."""
