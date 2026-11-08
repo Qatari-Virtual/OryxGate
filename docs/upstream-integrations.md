@@ -98,11 +98,25 @@ Returns the active aircraft catalog for the virtual airline, mapping human-reada
 ## 4. MySQL Database (`aiomysql`)
 
 ### Overview
-OryxGate communicates directly with the shared MySQL database for pilot verification, token persistence, and analytics.
+OryxGate communicates directly with the shared MySQL database for pilot verification, token persistence, and analytics. Connection pooling and query execution are managed by `DatabaseManager` in `app/upstream/database.py`.
 
-### Connection Management
-- Utilizes `aiomysql.create_pool` with min 1, max 10 connections.
-- Automatically handles reconnection if connections become stale (`aiomysql.OperationalError`).
+### Connection Management & Specification (`DatabaseManager`)
+- **Connection Pool:** Uses `aiomysql.create_pool` with `minsize=1`, `maxsize=10`, `autocommit=True`, and `charset="utf8mb4"`.
+- **Cursor Type:** `aiomysql.DictCursor` by default, ensuring all query rows return as `dict[str, Any]` mappings.
+- **Configuration:** Reads credentials from `Settings` (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
+- **Lifecycle Methods:**
+  - `connect() -> None`: Initializes the connection pool if not already established. Thread-safe/async-safe with `asyncio.Lock`.
+  - `close() -> None`: Gracefully drains and closes the connection pool via `pool.close()` and `await pool.wait_closed()`.
+- **Query Execution API:**
+  - `acquire() -> AsyncIterator[aiomysql.Connection]`: Context manager acquiring a connection from the pool and releasing it safely in a `finally` block.
+  - `fetch_one(query: str, params: tuple | list | dict | None = None) -> dict[str, Any] | None`: Acquires a connection, executes the parameterized query using `DictCursor`, and returns a single dictionary or `None`.
+  - `fetch_all(query: str, params: tuple | list | dict | None = None) -> list[dict[str, Any]]`: Acquires a connection, executes the parameterized query using `DictCursor`, and returns a list of dictionaries.
+  - `execute(query: str, params: tuple | list | dict | None = None) -> int`: Acquires a connection, executes a statement (INSERT, UPDATE, DELETE), and returns `cursor.rowcount`.
+  - `ping() -> bool`: Executes `SELECT 1` to verify database reachability and liveness; returns `True` if successful, `False` on failure.
+- **Self-Healing Reconnection Strategy:**
+  - When executing queries (`fetch_one`, `fetch_all`, `execute`, `ping`), intercept `aiomysql.OperationalError` (e.g., MySQL server gone away, lost connection).
+  - On error, log a warning with context, discard the severed pool, establish a fresh pool, and retry the query transparently (up to 1 retry).
+  - If retry fails or a non-operational error (e.g., syntax or constraint errors) occurs, bubble up the exception without retrying.
 
 ### Key Table Schemas
 
