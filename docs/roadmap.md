@@ -24,8 +24,8 @@ flowchart LR
 - [x] Create `pyproject.toml` and lock dependencies (`fastapi`, `uvicorn`, `orjson`, `pydantic-settings`, `aiohttp`, `aiomysql`, `pytest`, `pytest-asyncio`, `respx`).
 - [x] Configure `app/config.py` using `pydantic-settings` for all environment variables (TASK-1.2).
 - [x] Implement Bearer authentication and security dependencies in `app/core/security.py` (TASK-1.3).
-- [ ] Implement `GET /api/v1/health` and FastAPI application setup (TASK-1.4).
-- [ ] Author E2E test suite for auth & health routes (`tests/e2e/test_auth.py`, TASK-1.5).
+- [x] Implement `GET /api/v1/health` and FastAPI application setup (TASK-1.4).
+- [x] Author E2E test suite for auth & health routes (`tests/e2e/test_auth.py`, `tests/e2e/test_health.py`, TASK-1.5).
 
 ---
 
