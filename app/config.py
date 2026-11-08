@@ -14,7 +14,7 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
     """Parse comma-separated, JSON-encoded, or iterable token strings into a list of SecretStr."""
     if value is None:
         raise ValueError("Token list cannot be None.")
-    if isinstance(value, (Mapping, dict)):
+    if isinstance(value, Mapping | dict):
         raise ValueError(f"Token list cannot be a mapping, got {type(value).__name__}.")
     if isinstance(value, str):
         v = value.strip()
@@ -40,7 +40,7 @@ def _parse_token_input(value: Any) -> list[SecretStr]:
                     parsed_tokens.append(SecretStr(item_str))
             return parsed_tokens
         return [SecretStr(tok.strip()) for tok in v.split(",") if tok.strip()]
-    if isinstance(value, (list, set, tuple)):
+    if isinstance(value, list | set | tuple):
         tokens: list[SecretStr] = []
         for item in value:
             if isinstance(item, SecretStr):

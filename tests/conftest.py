@@ -48,4 +48,3 @@ async def async_client(test_app: FastAPI) -> AsyncIterator[AsyncClient]:
         base_url="http://testserver",
     ) as client:
         yield client
-

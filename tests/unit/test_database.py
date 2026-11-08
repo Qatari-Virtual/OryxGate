@@ -219,12 +219,42 @@ async def test_execute_query(mock_settings: Settings) -> None:
 
 
 @pytest.mark.asyncio
+async def test_insert_query(mock_settings: Settings) -> None:
+    """Test insert runs statement with parameters and returns lastrowid or rowcount."""
+    from app.upstream.database import DatabaseManager
+
+    mock_cursor = create_mock_cursor(rowcount=1)
+    mock_cursor.lastrowid = 42
+    mock_conn = create_mock_connection(mock_cursor)
+    mock_pool = create_mock_pool(mock_conn)
+
+    with patch("aiomysql.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        mock_create_pool.return_value = mock_pool
+        db_mgr = DatabaseManager(settings=mock_settings)
+
+        res = await db_mgr.insert(
+            "INSERT INTO pilots (callsign) VALUES (%s)",
+            ("QRV101",),
+        )
+
+        assert res == 42
+        mock_cursor.execute.assert_awaited_once_with(
+            "INSERT INTO pilots (callsign) VALUES (%s)",
+            ("QRV101",),
+        )
+
+        await db_mgr.close()
+
+
+@pytest.mark.asyncio
 async def test_execute_does_not_retry_write_on_operational_error(mock_settings: Settings) -> None:
     """AC: execute() reconnects severed pool but does not re-run write statements to prevent duplicate side effects."""
     from app.upstream.database import DatabaseManager
 
     failing_cursor = AsyncMock()
-    failing_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+    failing_cursor.execute.side_effect = aiomysql.OperationalError(
+        2006, "MySQL server has gone away"
+    )
     failing_conn = create_mock_connection(failing_cursor)
     failing_pool = create_mock_pool(failing_conn)
 
@@ -262,7 +292,9 @@ async def test_concurrent_reconnect_stampede_protection(mock_settings: Settings)
 
     # Initial pool with failing cursor
     failing_cursor = AsyncMock()
-    failing_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+    failing_cursor.execute.side_effect = aiomysql.OperationalError(
+        2006, "MySQL server has gone away"
+    )
     failing_conn = create_mock_connection(failing_cursor)
     failing_pool = create_mock_pool(failing_conn)
 
@@ -311,7 +343,9 @@ async def test_ping_success_and_failure(mock_settings: Settings) -> None:
         assert await db_mgr.ping() is True
 
         # When execution raises an unhandled error during ping
-        mock_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+        mock_cursor.execute.side_effect = aiomysql.OperationalError(
+            2006, "MySQL server has gone away"
+        )
         # On retry also raises error
         assert await db_mgr.ping() is False
 
@@ -325,7 +359,9 @@ async def test_reconnect_on_operational_error(mock_settings: Settings) -> None:
 
     # First pool fails with OperationalError
     failing_cursor = AsyncMock()
-    failing_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+    failing_cursor.execute.side_effect = aiomysql.OperationalError(
+        2006, "MySQL server has gone away"
+    )
     failing_conn = create_mock_connection(failing_cursor)
     failing_pool = create_mock_pool(failing_conn)
 
@@ -356,7 +392,9 @@ async def test_operational_error_raises_if_retry_fails(mock_settings: Settings) 
     from app.upstream.database import DatabaseManager
 
     failing_cursor = AsyncMock()
-    failing_cursor.execute.side_effect = aiomysql.OperationalError(2006, "MySQL server has gone away")
+    failing_cursor.execute.side_effect = aiomysql.OperationalError(
+        2006, "MySQL server has gone away"
+    )
     failing_conn = create_mock_connection(failing_cursor)
     pool_1 = create_mock_pool(failing_conn)
     pool_2 = create_mock_pool(failing_conn)
@@ -378,7 +416,9 @@ async def test_non_operational_error_does_not_retry(mock_settings: Settings) -> 
     from app.upstream.database import DatabaseManager
 
     syntax_cursor = AsyncMock()
-    syntax_cursor.execute.side_effect = aiomysql.ProgrammingError(1064, "You have an error in your SQL syntax")
+    syntax_cursor.execute.side_effect = aiomysql.ProgrammingError(
+        1064, "You have an error in your SQL syntax"
+    )
     syntax_conn = create_mock_connection(syntax_cursor)
     pool = create_mock_pool(syntax_conn)
 
@@ -403,12 +443,21 @@ def test_is_disconnect_error_helper() -> None:
         assert is_disconnect_error(aiomysql.OperationalError(code, "Connection error")) is True
 
     # Fallback to message string
-    assert is_disconnect_error(aiomysql.OperationalError(9999, "MySQL server has gone away")) is True
+    assert (
+        is_disconnect_error(aiomysql.OperationalError(9999, "MySQL server has gone away")) is True
+    )
     assert is_disconnect_error(aiomysql.OperationalError(9999, "Lost connection to MySQL")) is True
 
     # Contention, locks, and capacity codes should NOT be treated as disconnects
-    assert is_disconnect_error(aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")) is False
-    assert is_disconnect_error(aiomysql.OperationalError(1205, "Lock wait timeout exceeded")) is False
+    assert (
+        is_disconnect_error(
+            aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")
+        )
+        is False
+    )
+    assert (
+        is_disconnect_error(aiomysql.OperationalError(1205, "Lock wait timeout exceeded")) is False
+    )
     assert is_disconnect_error(aiomysql.OperationalError(1040, "Too many connections")) is False
 
     # Other exception types
@@ -422,7 +471,9 @@ async def test_operational_error_deadlock_does_not_reconnect_pool(mock_settings:
     from app.upstream.database import DatabaseManager
 
     cursor = AsyncMock()
-    cursor.execute.side_effect = aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")
+    cursor.execute.side_effect = aiomysql.OperationalError(
+        1213, "Deadlock found when trying to get lock"
+    )
     conn = create_mock_connection(cursor)
     pool = create_mock_pool(conn)
 
@@ -442,12 +493,16 @@ async def test_operational_error_deadlock_does_not_reconnect_pool(mock_settings:
 
 
 @pytest.mark.asyncio
-async def test_operational_error_lock_wait_timeout_does_not_reconnect_pool(mock_settings: Settings) -> None:
+async def test_operational_error_lock_wait_timeout_does_not_reconnect_pool(
+    mock_settings: Settings,
+) -> None:
     """AC: ER_LOCK_WAIT_TIMEOUT (1205) does not trigger pool teardown/reconnect and raises directly."""
     from app.upstream.database import DatabaseManager
 
     cursor = AsyncMock()
-    cursor.execute.side_effect = aiomysql.OperationalError(1205, "Lock wait timeout exceeded; try restarting transaction")
+    cursor.execute.side_effect = aiomysql.OperationalError(
+        1205, "Lock wait timeout exceeded; try restarting transaction"
+    )
     conn = create_mock_connection(cursor)
     pool = create_mock_pool(conn)
 
@@ -472,7 +527,9 @@ async def test_execute_deadlock_does_not_reconnect_pool(mock_settings: Settings)
     from app.upstream.database import DatabaseManager
 
     cursor = AsyncMock()
-    cursor.execute.side_effect = aiomysql.OperationalError(1213, "Deadlock found when trying to get lock")
+    cursor.execute.side_effect = aiomysql.OperationalError(
+        1213, "Deadlock found when trying to get lock"
+    )
     conn = create_mock_connection(cursor)
     pool = create_mock_pool(conn)
 
