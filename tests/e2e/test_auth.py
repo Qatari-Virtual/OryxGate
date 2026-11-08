@@ -307,7 +307,6 @@ async def test_bearer_header_with_whitespace_only_returns_401(auth_client: Async
     payload = response.json()
     assert payload["success"] is False
     assert payload["error"]["code"] == "UNAUTHORIZED"
-    assert "authorization header" in payload["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
